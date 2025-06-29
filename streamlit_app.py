@@ -4,27 +4,25 @@ import requests
 from fake_useragent import UserAgent
 import base64
 from io import StringIO
-import urllib.parse
 
 ua = UserAgent()
 
-# === DuckDuckGo Scraper (No API, No Rate Limit) ===
+# === DuckDuckGo Lite Scraping (Stable & API-Free) ===
 def search_web(query, num_results=5):
     headers = {'User-Agent': ua.random}
-    query_encoded = urllib.parse.quote_plus(query)
-    response = requests.get(f"https://html.duckduckgo.com/html/?q={query_encoded}", headers=headers)
+    response = requests.post("https://lite.duckduckgo.com/lite/", data={"q": query}, headers=headers)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     links = []
-    for a in soup.select('a.result__a[href]'):
-        href = a['href']
-        if href.startswith("http"):
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        if href.startswith("http") and "duckduckgo.com" not in href:
             links.append(href)
         if len(links) >= num_results:
             break
     return links
 
-# === Scrape website content from URL ===
+# === Scrape and clean page content ===
 def fetch_and_parse(url):
     try:
         headers = {'User-Agent': ua.random}
@@ -36,7 +34,7 @@ def fetch_and_parse(url):
     except Exception as e:
         return f"[ERROR fetching {url}] {e}"
 
-# === Audio player for J.A.R.V.I.S. sound ===
+# === Play .mp3 startup sound ===
 def play_audio(file_path):
     try:
         with open(file_path, "rb") as f:
@@ -46,7 +44,7 @@ def play_audio(file_path):
     except Exception as e:
         st.warning(f"Audio Error: {e}")
 
-# === Streamlit App ===
+# === Streamlit UI ===
 def main():
     st.set_page_config(page_title="🧊 STARK WEB INTELLIGENCE", layout="wide")
 
@@ -70,9 +68,8 @@ def main():
 
     query = st.text_input("Enter your query:", "")
 
-    # Startup sound only once
     if "played" not in st.session_state:
-        play_audio("stark_startup.mp3")
+        play_audio("stark_startup.mp3")  # Make sure this file is in same folder
         st.session_state.played = True
 
     collected_results = StringIO()
