@@ -7,19 +7,20 @@ from io import StringIO
 
 ua = UserAgent()
 
-# === DuckDuckGo Lite Scraping (Stable & API-Free) ===
 def search_web(query, num_results=5):
     headers = {'User-Agent': ua.random}
-    response = requests.post("https://lite.duckduckgo.com/lite/", data={"q": query}, headers=headers)
+    response = requests.get(f"https://search.brave.com/search?q={query}", headers=headers)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     links = []
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        if href.startswith("http") and "duckduckgo.com" not in href:
-            links.append(href)
+    for a in soup.select("a[href]"):
+        href = a['href']
+        if href.startswith("http") and "brave.com" not in href and "javascript:void" not in href:
+            if href not in links:
+                links.append(href)
         if len(links) >= num_results:
             break
+
     return links
 
 # === Scrape and clean page content ===
