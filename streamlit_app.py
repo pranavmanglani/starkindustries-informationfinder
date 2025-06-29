@@ -3,32 +3,28 @@ from bs4 import BeautifulSoup
 import requests
 from fake_useragent import UserAgent
 import base64
-import re
 from io import StringIO
+import urllib.parse
 
 ua = UserAgent()
 
-# === Google Search without API ===
+# === DuckDuckGo Scraper (No API, No Rate Limit) ===
 def search_web(query, num_results=5):
     headers = {'User-Agent': ua.random}
-    params = {'q': query, 'num': num_results}
-    response = requests.get("https://www.google.com/search", params=params, headers=headers)
+    query_encoded = urllib.parse.quote_plus(query)
+    response = requests.get(f"https://html.duckduckgo.com/html/?q={query_encoded}", headers=headers)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     links = []
-    for a in soup.find_all('a', href=True):
+    for a in soup.select('a.result__a[href]'):
         href = a['href']
-        match = re.search(r'/url\?q=(https?://[^&]+)&', href)
-        if match:
-            link = match.group(1)
-            if "google.com" not in link and "webcache" not in link:
-                links.append(link)
+        if href.startswith("http"):
+            links.append(href)
         if len(links) >= num_results:
             break
-
     return links
 
-# === Fetch and parse website content ===
+# === Scrape website content from URL ===
 def fetch_and_parse(url):
     try:
         headers = {'User-Agent': ua.random}
@@ -40,7 +36,7 @@ def fetch_and_parse(url):
     except Exception as e:
         return f"[ERROR fetching {url}] {e}"
 
-# === Audio startup ===
+# === Audio player for J.A.R.V.I.S. sound ===
 def play_audio(file_path):
     try:
         with open(file_path, "rb") as f:
@@ -54,7 +50,6 @@ def play_audio(file_path):
 def main():
     st.set_page_config(page_title="🧊 STARK WEB INTELLIGENCE", layout="wide")
 
-    # Custom UI theme
     st.markdown(
         """
         <style>
@@ -75,18 +70,18 @@ def main():
 
     query = st.text_input("Enter your query:", "")
 
-    # Play startup sound once
+    # Startup sound only once
     if "played" not in st.session_state:
         play_audio("stark_startup.mp3")
         st.session_state.played = True
 
     collected_results = StringIO()
 
-    if st.button("🔍 Launch J.A.R.V.I.S. Scan") and query.strip() != "":
+    if st.button("🔍 Launch J.A.R.V.I.S. Scan") and query.strip():
         st.info(f"Scanning the web for: **{query}**")
         urls = search_web(query)
         if not urls:
-            st.warning("No results found or Google blocked the request.")
+            st.warning("No results found. Try a different query.")
         else:
             for i, url in enumerate(urls, 1):
                 st.markdown(f"### {i}. [{url}]({url})")
@@ -96,14 +91,13 @@ def main():
                     st.markdown("---")
                     collected_results.write(f"{i}. {url}\n{content}\n{'='*60}\n\n")
 
-            # Only show download button if there’s content
-            if collected_results.tell() > 0:
-                st.download_button(
-                    label="💾 Download Results as .txt",
-                    data=collected_results.getvalue(),
-                    file_name="stark_results.txt",
-                    mime="text/plain"
-                )
+            st.download_button(
+                label="💾 Download Results as .txt",
+                data=collected_results.getvalue(),
+                file_name="stark_results.txt",
+                mime="text/plain"
+            )
+
     elif query.strip() == "":
         st.warning("Please enter a query to begin the scan.")
 
