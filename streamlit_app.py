@@ -1,18 +1,35 @@
 import streamlit as st
-from duckduckgo_search import DDGS
 from bs4 import BeautifulSoup
 import requests
 from fake_useragent import UserAgent
 import base64
+import re
+import time
+from io import StringIO
 
 ua = UserAgent()
 
-# === Utility Functions ===
+# === Google Search without API ===
 def search_web(query, num_results=5):
-    with DDGS() as ddgs:
-        results = ddgs.text(query, max_results=num_results)
-        return [res["href"] for res in results]
+    headers = {'User-Agent': ua.random}
+    params = {'q': query, 'num': num_results}
+    response = requests.get("https://www.google.com/search", params=params, headers=headers)
+    soup = BeautifulSoup(response.text, 'html.parser')
 
+    links = []
+    for a in soup.find_all('a', href=True):
+        href = a['href']
+        match = re.search(r'/url\?q=(https?://[^&]+)&', href)
+        if match:
+            link = match.group(1)
+            if "google.com" not in link and "webcache" not in link:
+                links.append(link)
+        if len(links) >= num_results:
+            break
+
+    return links
+
+# === Fetch and parse text content ===
 def fetch_and_parse(url):
     try:
         headers = {'User-Agent': ua.random}
@@ -24,6 +41,7 @@ def fetch_and_parse(url):
     except Exception as e:
         return f"[ERROR fetching {url}] {e}"
 
+# === Play Stark Startup Sound ===
 def play_audio(file_path):
     with open(file_path, "rb") as f:
         audio_bytes = f.read()
@@ -54,6 +72,8 @@ def main():
 
     query = st.text_input("Enter your query:", "")
 
+    collected_results = StringIO()
+
     if st.button("🔍 Launch J.A.R.V.I.S. Scan"):
         st.info(f"Scanning the web for: **{query}**")
         urls = search_web(query)
@@ -63,8 +83,18 @@ def main():
                 content = fetch_and_parse(url)
                 st.write(content)
                 st.markdown("---")
+                # Save to results
+                collected_results.write(f"{i}. {url}\n{content}\n{'='*60}\n\n")
 
-    # Optionally play sound on load
+        # 🔽 Download option
+        st.download_button(
+            label="💾 Download Results as .txt",
+            data=collected_results.getvalue(),
+            file_name="stark_results.txt",
+            mime="text/plain"
+        )
+
+    # ▶️ Play sound on first load
     if "played" not in st.session_state:
         try:
             play_audio("stark_startup.mp3")
